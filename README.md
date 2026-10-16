@@ -108,6 +108,7 @@ Built with Next.js, Go (chi), PostgreSQL, Redis, and Docker Compose.
 ## Tech Stack
 
 **Backend**
+
 - Go 1.26+
 - chi router
 - pgx (PostgreSQL driver)
@@ -116,6 +117,7 @@ Built with Next.js, Go (chi), PostgreSQL, Redis, and Docker Compose.
 - golang-jwt (auth)
 
 **Frontend**
+
 - Next.js 16 (App Router)
 - TypeScript
 - Tailwind CSS
@@ -123,6 +125,7 @@ Built with Next.js, Go (chi), PostgreSQL, Redis, and Docker Compose.
 - SWR or React Query for data fetching
 
 **Infra**
+
 - PostgreSQL 16
 - Redis 7
 - Docker + Docker Compose
@@ -307,7 +310,6 @@ API_PORT=8080
 ### Run with Docker Compose
 
 ```bash
-git clone <your-repo>
 cd job-scheduler
 cp .env.example .env
 docker compose up --build
@@ -339,7 +341,7 @@ Recommended build order (backend first).
 2. Write `migrations/002_seed_admin.sql` with a bcrypt-hashed admin.
 3. Bring up Postgres only:
    ```bash
-   docker compose up postgres -d
+     docker compose up postgres -d
    ```
 4. Apply migrations manually or with a small migrate script.
 
@@ -487,14 +489,18 @@ curl -X POST http://localhost:8080/api/jobs \
 1. Admin creates a job with a script type, path, args, and a schedule.
 2. Scheduler checks due schedules every 10 seconds.
 3. For each due schedule it creates a `run` row with status `queued`
+
    and pushes the run ID to Redis list `job_queue`.
 4. Worker pops a run, atomically marks it `running`, and executes the
+
    script with the correct interpreter.
 5. Worker captures stdout/stderr, writes to `run_logs`, and publishes
+
    each line to Redis channel `run:{id}`.
 6. API forwards those lines to the browser over SSE.
 7. On finish, worker updates status, exit code, and finish time.
 8. If the schedule is recurring, the scheduler computes `next_run_at`.
+
    If it's a `once` schedule, it's disabled.
 
 ---
@@ -512,10 +518,13 @@ curl -X POST http://localhost:8080/api/jobs \
 Arguments are always passed as separate argv entries, never via `sh -c`.
 
 Example: a job with
+
 ```json
 { "script_type": "python", "script_path": "/scripts/report.py", "args": ["--month", "2026-09"] }
 ```
+
 executes:
+
 ```
 python3 /scripts/report.py --month 2026-09
 ```
@@ -525,6 +534,7 @@ python3 /scripts/report.py --month 2026-09
 ## Scheduling
 
 ### Once
+
 Runs at one exact time. After the run is created, the schedule is disabled.
 
 ```json
@@ -532,6 +542,7 @@ Runs at one exact time. After the run is created, the schedule is disabled.
 ```
 
 ### Cron
+
 Standard 5-field cron expression.
 
 ```json
@@ -541,6 +552,7 @@ Standard 5-field cron expression.
 Runs every day at 09:00 Amsterdam time.
 
 ### Interval
+
 Every N seconds.
 
 ```json
@@ -581,7 +593,7 @@ Each message is one log line.
 - [x] Manual run
 - [x] Worker with log streaming
 - [x] Once / cron / interval schedules
-- [x] Live logs in UI
+- [ ] Live logs in UI
 - [ ] Cancel running job
 - [ ] Retry failed run
 - [ ] Docker-per-run isolation
