@@ -1,0 +1,30 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Go build output and coverage
+bin/
+dist/
+*.exe
+*.test
+*.out
+coverage.out
+
+# Frontend dependencies and build output
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local data and logs
+*.log
+postgres_data/
+redis_data/
