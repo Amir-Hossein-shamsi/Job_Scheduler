@@ -1,11 +1,13 @@
 basePath: /
 definitions:
-  main.createJobRequest:
+  api.createJobRequest:
     properties:
       args:
         items:
           type: string
         type: array
+      connection:
+        $ref: '#/definitions/api.sqlConnectionRequest'
       description:
         type: string
       enabled:
@@ -27,12 +29,14 @@ definitions:
       working_dir:
         type: string
     type: object
-  main.jobResponse:
+  api.jobResponse:
     properties:
       args:
         items:
           type: string
         type: array
+      connection:
+        $ref: '#/definitions/api.sqlConnectionResponse'
       created_at:
         type: string
       created_by:
@@ -62,19 +66,19 @@ definitions:
       working_dir:
         type: string
     type: object
-  main.loginRequest:
+  api.loginRequest:
     properties:
       email:
         type: string
       password:
         type: string
     type: object
-  main.loginResponse:
+  api.loginResponse:
     properties:
       token:
         type: string
     type: object
-  main.meResponse:
+  api.meResponse:
     properties:
       email:
         type: string
@@ -83,17 +87,105 @@ definitions:
       role:
         type: string
     type: object
-  main.runResponse:
+  api.runResponse:
     properties:
       created_at:
+        type: string
+      error_message:
+        type: string
+      exit_code:
+        type: integer
+      finished_at:
         type: string
       id:
         type: string
       job_id:
         type: string
+      started_at:
+        type: string
       status:
         type: string
       trigger_type:
+        type: string
+      triggered_by:
+        type: string
+      worker_id:
+        type: string
+    type: object
+  api.scheduleRequest:
+    properties:
+      cron_expr:
+        type: string
+      enabled:
+        type: boolean
+      interval_seconds:
+        type: integer
+      run_at:
+        type: string
+      timezone:
+        type: string
+      type:
+        type: string
+    type: object
+  api.scheduleResponse:
+    properties:
+      created_at:
+        type: string
+      cron_expr:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: string
+      interval_seconds:
+        type: integer
+      job_id:
+        type: string
+      next_run_at:
+        type: string
+      run_at:
+        type: string
+      timezone:
+        type: string
+      type:
+        type: string
+    type: object
+  api.sqlConnectionRequest:
+    properties:
+      database:
+        type: string
+      engine:
+        type: string
+      host:
+        type: string
+      password:
+        type: string
+      port:
+        type: integer
+      tls_enabled:
+        type: boolean
+      trust_server_certificate:
+        type: boolean
+      username:
+        type: string
+    type: object
+  api.sqlConnectionResponse:
+    properties:
+      database:
+        type: string
+      engine:
+        type: string
+      host:
+        type: string
+      password_configured:
+        type: boolean
+      port:
+        type: integer
+      tls_enabled:
+        type: boolean
+      trust_server_certificate:
+        type: boolean
+      username:
         type: string
     type: object
 host: localhost:8080
@@ -113,14 +205,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/main.loginRequest'
+          $ref: '#/definitions/api.loginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/main.loginResponse'
+            $ref: '#/definitions/api.loginResponse'
         "400":
           description: Invalid request
           schema:
@@ -144,7 +236,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/main.meResponse'
+            $ref: '#/definitions/api.meResponse'
         "401":
           description: Authentication required
           schema:
@@ -163,7 +255,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/main.jobResponse'
+              $ref: '#/definitions/api.jobResponse'
             type: array
         "401":
           description: Authentication required
@@ -187,14 +279,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/main.createJobRequest'
+          $ref: '#/definitions/api.createJobRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/main.jobResponse'
+            $ref: '#/definitions/api.jobResponse'
         "400":
           description: Invalid request
           schema:
@@ -226,32 +318,208 @@ paths:
         "202":
           description: Accepted
           schema:
-            $ref: '#/definitions/main.runResponse'
-        "401":
-          description: Authentication required
-          schema:
-            type: string
-        "404":
-          description: Job not found
-          schema:
-            type: string
-        "409":
-          description: Job is disabled
-          schema:
-            type: string
-        "500":
-          description: Could not create run
-          schema:
-            type: string
-        "503":
-          description: Could not queue run
-          schema:
-            type: string
+            $ref: '#/definitions/api.runResponse'
       security:
       - BearerAuth: []
       summary: Trigger a job manually
       tags:
       - Runs
+  /api/jobs/{id}/runs:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: List job runs
+      tags:
+      - Runs
+  /api/jobs/{id}/schedules:
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.scheduleResponse'
+            type: array
+        "401":
+          description: Authentication required
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: List schedules for a job
+      tags:
+      - Schedules
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Schedule details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.scheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.scheduleResponse'
+        "400":
+          description: Invalid schedule
+          schema:
+            type: string
+        "401":
+          description: Authentication required
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Create a schedule
+      tags:
+      - Schedules
+  /api/runs/{id}:
+    get:
+      parameters:
+      - description: Run ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get a run
+      tags:
+      - Runs
+  /api/runs/{id}/logs:
+    get:
+      parameters:
+      - description: Run ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Return logs after this ID
+        in: query
+        name: after
+        type: integer
+      - description: Maximum logs to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get run logs
+      tags:
+      - Runs
+  /api/runs/{id}/logs/stream:
+    get:
+      parameters:
+      - description: Run ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Stream run logs
+      tags:
+      - Runs
+  /api/schedules/{id}:
+    delete:
+      parameters:
+      - description: Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Authentication required
+          schema:
+            type: string
+        "404":
+          description: Schedule not found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Delete a schedule
+      tags:
+      - Schedules
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Schedule details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.scheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.scheduleResponse'
+        "400":
+          description: Invalid schedule
+          schema:
+            type: string
+        "401":
+          description: Authentication required
+          schema:
+            type: string
+        "404":
+          description: Schedule not found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update a schedule
+      tags:
+      - Schedules
 securityDefinitions:
   BearerAuth:
     description: Enter "Bearer" followed by a space and your JWT.

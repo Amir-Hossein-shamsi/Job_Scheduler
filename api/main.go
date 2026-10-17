@@ -84,6 +84,7 @@ func main() {
 	))
 
 	runs := newRunHandler(pool, redisClient)
+	schedules := newScheduleHandler(pool)
 
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -112,6 +113,10 @@ func main() {
 	router.With(auth.requireAuth).Post("/api/jobs", jobs.create)
 	router.With(auth.requireAuth).Get("/api/jobs/{id}/runs", runs.list)
 	router.With(auth.requireAuth).Post("/api/jobs/{id}/run", runs.trigger)
+	router.With(auth.requireAuth).Get("/api/jobs/{id}/schedules", schedules.list)
+	router.With(auth.requireAuth).Post("/api/jobs/{id}/schedules", schedules.create)
+	router.With(auth.requireAuth).Patch("/api/schedules/{id}", schedules.update)
+	router.With(auth.requireAuth).Delete("/api/schedules/{id}", schedules.delete)
 	router.With(auth.requireAuth).Get("/api/runs/{id}", runs.get)
 	router.With(auth.requireAuth).Get("/api/runs/{id}/logs", runs.logs)
 	router.With(auth.requireAuth).Get("/api/runs/{id}/logs/stream", runs.stream)

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"sort"
@@ -16,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"job_scheduler/internal/dockerexec"
 	"job_scheduler/internal/sqljob"
 
 	"github.com/jackc/pgx/v5"
@@ -72,6 +72,12 @@ func main() {
 		log.Fatalf("connect to Redis: %v", err)
 	}
 
+	dockerExecutor, err := dockerexec.NewFromEnv()
+	if err != nil {
+		log.Fatalf("configure Docker executor: %v", err)
+	}
+	defer dockerExecutor.Close()
+
 	workerID, err := os.Hostname()
 	if err != nil {
 		workerID = "worker"
@@ -85,7 +91,7 @@ func main() {
 	defer stop()
 
 	log.Printf("worker %s started", workerID)
-	if err := workLoop(ctx, db, redisClient, workerID, credentialBox); err != nil {
+	if err := workLoop(ctx, db, redisClient, workerID, credentialBox, dockerExecutor); err != nil {
 		log.Printf("worker stopped: %v", err)
 	}
 }
@@ -97,6 +103,7 @@ func workLoop(
 	redisClient *redis.Client,
 	workerID string,
 	credentialBox *sqljob.SecretBox,
+	dockerExecutor *dockerexec.Executor,
 ) error {
 	for {
 		item, err := redisClient.BRPop(ctx, 0, queueName).Result()
@@ -119,7 +126,7 @@ func workLoop(
 			continue
 		}
 
-		if err := processRun(ctx, db, item[1], workerID, credentialBox); err != nil {
+		if err := processRun(ctx, db, item[1], workerID, credentialBox, dockerExecutor); err != nil {
 			log.Printf("process run %s: %v", item[1], err)
 		}
 	}
@@ -132,6 +139,7 @@ func processRun(
 	runID string,
 	workerID string,
 	credentialBox *sqljob.SecretBox,
+	dockerExecutor *dockerexec.Executor,
 ) error {
 	var currentJob job
 
@@ -212,39 +220,49 @@ func processRun(
 	var stdout []byte
 	var stderr []byte
 	var runErr error
+	var exitCode any = 0
 
 	if currentJob.ScriptType == "sql" {
-		stdout, stderr, runErr = executeSQL(
+		stdoutWriter := &runLogWriter{db: db, runID: runID, stream: "stdout"}
+		stderrWriter := &runLogWriter{db: db, runID: runID, stream: "stderr"}
+		result := dockerExecutor.RunSQL(
 			runCtx,
+			runID,
 			scriptPath,
 			currentJob.SQLConnection,
-			credentialBox,
+			os.Getenv("SQL_CREDENTIALS_KEY"),
+			stdoutWriter,
+			stderrWriter,
 		)
+		runErr = result.Err
+		exitCode = result.ExitCode
+		if err := stdoutWriter.Flush(); err != nil {
+			log.Printf("save stdout for run %s: %v", runID, err)
+		}
+		if err := stderrWriter.Flush(); err != nil {
+			log.Printf("save stderr for run %s: %v", runID, err)
+		}
 	} else {
-		command, commandErr := commandFor(
+		stdoutWriter := &runLogWriter{db: db, runID: runID, stream: "stdout"}
+		stderrWriter := &runLogWriter{db: db, runID: runID, stream: "stderr"}
+		result := dockerExecutor.Run(
 			runCtx,
+			runID,
 			currentJob.ScriptType,
 			scriptPath,
 			args,
+			mergedEnvironment(env),
+			workingDir,
+			stdoutWriter,
+			stderrWriter,
 		)
-		if commandErr != nil {
-			runErr = commandErr
-		} else {
-			command.Dir = workingDir
-			command.Env = mergedEnvironment(env)
-
-			stdoutWriter := &runLogWriter{db: db, runID: runID, stream: "stdout"}
-			stderrWriter := &runLogWriter{db: db, runID: runID, stream: "stderr"}
-			command.Stdout = stdoutWriter
-			command.Stderr = stderrWriter
-
-			runErr = command.Run()
-			if err := stdoutWriter.Flush(); err != nil {
-				log.Printf("save stdout for run %s: %v", runID, err)
-			}
-			if err := stderrWriter.Flush(); err != nil {
-				log.Printf("save stderr for run %s: %v", runID, err)
-			}
+		runErr = result.Err
+		exitCode = result.ExitCode
+		if err := stdoutWriter.Flush(); err != nil {
+			log.Printf("save stdout for run %s: %v", runID, err)
+		}
+		if err := stderrWriter.Flush(); err != nil {
+			log.Printf("save stderr for run %s: %v", runID, err)
 		}
 	}
 
@@ -252,18 +270,11 @@ func processRun(
 	cancel()
 
 	status := "success"
-	var exitCode any = 0
 	errorMessage := ""
 
 	if runErr != nil {
 		status = "failed"
-		exitCode = nil
 		errorMessage = runErr.Error()
-
-		var exitErr *exec.ExitError
-		if errors.As(runErr, &exitErr) {
-			exitCode = exitErr.ExitCode()
-		}
 
 		if errors.Is(contextErr, context.DeadlineExceeded) {
 			status = "timeout"
@@ -392,31 +403,6 @@ func redactPassword(message, password string) string {
 		return message
 	}
 	return strings.ReplaceAll(message, password, "[REDACTED]")
-}
-
-// commandFor chooses an installed interpreter and passes script arguments without a shell.
-func commandFor(
-	ctx context.Context,
-	scriptType string,
-	scriptPath string,
-	args []string,
-) (*exec.Cmd, error) {
-	switch scriptType {
-	case "python":
-		commandArgs := append([]string{scriptPath}, args...)
-		return exec.CommandContext(ctx, "python3", commandArgs...), nil
-	case "node":
-		commandArgs := append([]string{scriptPath}, args...)
-		return exec.CommandContext(ctx, "node", commandArgs...), nil
-	case "bash":
-		commandArgs := append([]string{scriptPath}, args...)
-		return exec.CommandContext(ctx, "bash", commandArgs...), nil
-	case "go":
-		commandArgs := append([]string{"run", scriptPath}, args...)
-		return exec.CommandContext(ctx, "go", commandArgs...), nil
-	default:
-		return nil, fmt.Errorf("unsupported script type %q", scriptType)
-	}
 }
 
 // pathUnderScripts checks that a script or working directory stays inside /scripts.

@@ -34,11 +34,11 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-scheduler}?sslmode=disable
       API_PORT: "8080"
-      JWT_SECRET: change-this-development-secret-to-at-least-32-characters
+      JWT_SECRET: 'WiPNf8y9j01r9yRCUVH7kBhCwyRzD0Dnx5TP5NTENjU='
       SQL_CREDENTIALS_KEY: ${SQL_CREDENTIALS_KEY:?Set SQL_CREDENTIALS_KEY in .env}
-      ADMIN_EMAIL: admin@example.com
+      ADMIN_EMAIL: admin@gmail.com
       ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: change-this-development-password
+      ADMIN_PASSWORD: admin0123
       REDIS_ADDR: redis:6379
     ports:
       - "8080:8080"
@@ -49,6 +49,7 @@ services:
         condition: service_healthy
 
   worker:
+    image: job-scheduler-worker:latest
     build:
       context: .
       dockerfile: worker/Dockerfile
@@ -56,8 +57,28 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-scheduler}?sslmode=disable
       SQL_CREDENTIALS_KEY: ${SQL_CREDENTIALS_KEY:?Set SQL_CREDENTIALS_KEY in .env}
       REDIS_ADDR: redis:6379
+      JOB_CONTAINER_IMAGE: job-scheduler-worker:latest
+      SCRIPTS_HOST_PATH: ${SCRIPTS_HOST_PATH:?Set SCRIPTS_HOST_PATH to an absolute host path}
+      JOB_CONTAINER_MEMORY_BYTES: ${JOB_CONTAINER_MEMORY_BYTES:-268435456}
+      JOB_CONTAINER_NANO_CPUS: ${JOB_CONTAINER_NANO_CPUS:-500000000}
+      JOB_CONTAINER_PIDS_LIMIT: ${JOB_CONTAINER_PIDS_LIMIT:-128}
+      JOB_CONTAINER_NETWORK_DISABLED: ${JOB_CONTAINER_NETWORK_DISABLED:-true}
     volumes:
       - ./scripts:/scripts:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: scheduler/Dockerfile
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-scheduler}?sslmode=disable
+      REDIS_ADDR: redis:6379
     depends_on:
       postgres:
         condition: service_healthy

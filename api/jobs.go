@@ -326,9 +326,13 @@ func (h *jobsHandler) validateAndEncryptConnection(
 		if input.Port == 0 {
 			input.Port = 1433
 		}
+	case "oracle":
+		if input.Port == 0 {
+			input.Port = 1521
+		}
 	default:
 		return sqljob.StoredConnection{}, errors.New(
-			"connection.engine must be postgres, mysql, or sqlserver",
+			"connection.engine must be postgres, mysql, sqlserver, or oracle",
 		)
 	}
 

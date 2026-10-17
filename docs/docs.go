@@ -34,7 +34,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/main.loginRequest"
+                            "$ref": "#/definitions/api.loginRequest"
                         }
                     }
                 ],
@@ -42,7 +42,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/main.loginResponse"
+                            "$ref": "#/definitions/api.loginResponse"
                         }
                     },
                     "400": {
@@ -84,7 +84,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/main.meResponse"
+                            "$ref": "#/definitions/api.meResponse"
                         }
                     },
                     "401": {
@@ -116,7 +116,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/main.jobResponse"
+                                "$ref": "#/definitions/api.jobResponse"
                             }
                         }
                     },
@@ -157,7 +157,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/main.createJobRequest"
+                            "$ref": "#/definitions/api.createJobRequest"
                         }
                     }
                 ],
@@ -165,7 +165,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/main.jobResponse"
+                            "$ref": "#/definitions/api.jobResponse"
                         }
                     },
                     "400": {
@@ -216,7 +216,308 @@ const docTemplate = `{
                     "202": {
                         "description": "Accepted",
                         "schema": {
-                            "$ref": "#/definitions/main.runResponse"
+                            "$ref": "#/definitions/api.runResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/jobs/{id}/runs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Runs"
+                ],
+                "summary": "List job runs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/jobs/{id}/schedules": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "List schedules for a job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.scheduleResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Create a schedule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Schedule details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.scheduleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/api.scheduleResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid schedule",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/runs/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Runs"
+                ],
+                "summary": "Get a run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/runs/{id}/logs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Runs"
+                ],
+                "summary": "Get run logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return logs after this ID",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum logs to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/runs/{id}/logs/stream": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "Runs"
+                ],
+                "summary": "Stream run logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/schedules/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Delete a schedule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Schedule ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Schedule not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Update a schedule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Schedule ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Schedule details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.scheduleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.scheduleResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid schedule",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     "401": {
@@ -226,25 +527,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Job not found",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "409": {
-                        "description": "Job is disabled",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Could not create run",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "503": {
-                        "description": "Could not queue run",
+                        "description": "Schedule not found",
                         "schema": {
                             "type": "string"
                         }
@@ -254,7 +537,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "main.createJobRequest": {
+        "api.createJobRequest": {
             "type": "object",
             "properties": {
                 "args": {
@@ -262,6 +545,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "connection": {
+                    "$ref": "#/definitions/api.sqlConnectionRequest"
                 },
                 "description": {
                     "type": "string"
@@ -295,7 +581,7 @@ const docTemplate = `{
                 }
             }
         },
-        "main.jobResponse": {
+        "api.jobResponse": {
             "type": "object",
             "properties": {
                 "args": {
@@ -303,6 +589,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "connection": {
+                    "$ref": "#/definitions/api.sqlConnectionResponse"
                 },
                 "created_at": {
                     "type": "string"
@@ -348,7 +637,7 @@ const docTemplate = `{
                 }
             }
         },
-        "main.loginRequest": {
+        "api.loginRequest": {
             "type": "object",
             "properties": {
                 "email": {
@@ -359,7 +648,7 @@ const docTemplate = `{
                 }
             }
         },
-        "main.loginResponse": {
+        "api.loginResponse": {
             "type": "object",
             "properties": {
                 "token": {
@@ -367,7 +656,7 @@ const docTemplate = `{
                 }
             }
         },
-        "main.meResponse": {
+        "api.meResponse": {
             "type": "object",
             "properties": {
                 "email": {
@@ -381,10 +670,19 @@ const docTemplate = `{
                 }
             }
         },
-        "main.runResponse": {
+        "api.runResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "exit_code": {
+                    "type": "integer"
+                },
+                "finished_at": {
                     "type": "string"
                 },
                 "id": {
@@ -393,10 +691,135 @@ const docTemplate = `{
                 "job_id": {
                     "type": "string"
                 },
+                "started_at": {
+                    "type": "string"
+                },
                 "status": {
                     "type": "string"
                 },
                 "trigger_type": {
+                    "type": "string"
+                },
+                "triggered_by": {
+                    "type": "string"
+                },
+                "worker_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.scheduleRequest": {
+            "type": "object",
+            "properties": {
+                "cron_expr": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "interval_seconds": {
+                    "type": "integer"
+                },
+                "run_at": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.scheduleResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "cron_expr": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interval_seconds": {
+                    "type": "integer"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "next_run_at": {
+                    "type": "string"
+                },
+                "run_at": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.sqlConnectionRequest": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string"
+                },
+                "engine": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "tls_enabled": {
+                    "type": "boolean"
+                },
+                "trust_server_certificate": {
+                    "type": "boolean"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.sqlConnectionResponse": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string"
+                },
+                "engine": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "password_configured": {
+                    "type": "boolean"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "tls_enabled": {
+                    "type": "boolean"
+                },
+                "trust_server_certificate": {
+                    "type": "boolean"
+                },
+                "username": {
                     "type": "string"
                 }
             }

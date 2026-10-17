@@ -18,17 +18,18 @@ import (
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/microsoft/go-mssqldb"
+	go_ora "github.com/sijms/go-ora/v2"
 )
 
 type StoredConnection struct {
-	Engine                    string `json:"engine"`
-	Host                      string `json:"host"`
-	Port                      int    `json:"port"`
-	Database                  string `json:"database"`
-	Username                  string `json:"username"`
-	PasswordEncrypted         string `json:"password_encrypted"`
-	TLS                       bool   `json:"tls_enabled"`
-	TrustServerCertificate    bool   `json:"trust_server_certificate,omitempty"`
+	Engine                 string `json:"engine"`
+	Host                   string `json:"host"`
+	Port                   int    `json:"port"`
+	Database               string `json:"database"`
+	Username               string `json:"username"`
+	PasswordEncrypted      string `json:"password_encrypted"`
+	TLS                    bool   `json:"tls_enabled"`
+	TrustServerCertificate bool   `json:"trust_server_certificate,omitempty"`
 }
 
 type SecretBox struct {
@@ -153,6 +154,17 @@ func (connection StoredConnection) OpenDB(
 		dsn.RawQuery = query.Encode()
 		dataSource = dsn.String()
 
+	case "oracle":
+		driverName = "oracle"
+		dataSource = goOracleURL(
+			connection.Host,
+			connection.Port,
+			connection.Database,
+			connection.Username,
+			password,
+			connection.TLS,
+		)
+
 	default:
 		return nil, fmt.Errorf("unsupported SQL engine %q", connection.Engine)
 	}
@@ -171,6 +183,14 @@ func (connection StoredConnection) OpenDB(
 	}
 
 	return db, nil
+}
+
+func goOracleURL(host string, port int, service, username, password string, tlsEnabled bool) string {
+	options := map[string]string{}
+	if tlsEnabled {
+		options["SSL"] = "true"
+	}
+	return go_ora.BuildUrl(host, port, service, username, password, options)
 }
 
 // mysqlConfig creates a MySQL DSN without manually concatenating credentials.

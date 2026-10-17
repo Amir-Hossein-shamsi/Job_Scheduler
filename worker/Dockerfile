@@ -7,12 +7,15 @@ RUN go mod download
 
 COPY worker ./worker
 COPY internal ./internal
+COPY sqlrunner ./sqlrunner
 RUN CGO_ENABLED=0 go build -o /out/worker ./worker
+RUN CGO_ENABLED=0 go build -o /out/sqlrunner ./sqlrunner
 
 FROM golang:1.26.5-alpine
 
 RUN apk add --no-cache bash nodejs npm python3
 
 COPY --from=build /out/worker /usr/local/bin/worker
+COPY --from=build /out/sqlrunner /usr/local/bin/sqlrunner
 
 ENTRYPOINT ["/usr/local/bin/worker"]
