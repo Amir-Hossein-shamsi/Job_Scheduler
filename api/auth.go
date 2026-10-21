@@ -12,12 +12,18 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
 
+type authDatabase interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 type authService struct {
-	db     *pgxpool.Pool
+	db     authDatabase
 	secret []byte
 }
 
@@ -176,6 +182,24 @@ func (a *authService) requireAuth(next http.Handler) http.Handler {
 		)
 		if err != nil || !token.Valid || claims.Role != "admin" {
 			http.Error(w, "invalid or expired token", http.StatusUnauthorized)
+			return
+		}
+
+		// A signed token can outlive its user after a database reset or account
+		// removal. Check the current account before handlers write foreign keys.
+		var activeAdmin bool
+		err = a.db.QueryRow(r.Context(), `
+			SELECT EXISTS (
+				SELECT 1 FROM users
+				WHERE id::text = $1 AND email = $2 AND role = 'admin'
+			)
+		`, claims.Subject, claims.Email).Scan(&activeAdmin)
+		if err != nil {
+			http.Error(w, "could not verify admin session; please try again", http.StatusServiceUnavailable)
+			return
+		}
+		if !activeAdmin {
+			http.Error(w, "admin session is no longer valid; please sign in again", http.StatusUnauthorized)
 			return
 		}
 

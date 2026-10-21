@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
@@ -89,7 +90,16 @@ func main() {
 	}
 }
 
-func processDue(ctx context.Context, db *pgxpool.Pool, redisClient *redis.Client) error {
+type scheduleDatabase interface {
+	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
+type scheduleQueue interface {
+	LPush(context.Context, string, ...any) *redis.IntCmd
+}
+
+func processDue(ctx context.Context, db scheduleDatabase, redisClient scheduleQueue) error {
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -122,7 +132,9 @@ func processDue(ctx context.Context, db *pgxpool.Pool, redisClient *redis.Client
 	}
 	defer rows.Close()
 
-	queuedRunIDs := make([]string, 0)
+	// Read and close the result set before issuing another query on this
+	// transaction's connection. Row locks remain held until commit.
+	due := make([]dueSchedule, 0)
 	for rows.Next() {
 		var schedule dueSchedule
 		if err := rows.Scan(
@@ -137,7 +149,15 @@ func processDue(ctx context.Context, db *pgxpool.Pool, redisClient *redis.Client
 		); err != nil {
 			return err
 		}
+		due = append(due, schedule)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
 
+	queuedRunIDs := make([]string, 0, len(due))
+	for _, schedule := range due {
 		nextRunAt, enabled, err := nextScheduleState(schedule, now)
 		if err != nil {
 			log.Printf("disable invalid schedule %s: %v", schedule.ID, err)
@@ -170,10 +190,6 @@ func processDue(ctx context.Context, db *pgxpool.Pool, redisClient *redis.Client
 		}
 		queuedRunIDs = append(queuedRunIDs, runID)
 	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
